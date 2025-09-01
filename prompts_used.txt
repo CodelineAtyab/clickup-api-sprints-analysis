@@ -1,0 +1,11 @@
+Before generating the .csv file, we have to generate a all_sprints_data.json that includes a list of sprints.
+Each item in the list is a dict with key as sprint name and value is a dict that includes:
+1) list_of_assignees as key and names of assignees as value (list)
+2) list_of_unique_tasks_titles as key and value is a list with each unique title
+3) committed_story_points as key and value would be an integer representing the total time estimate of all tasks (only include unique title tasks)
+4) delivered_story_points as key and a dict as value having each assignee name as key and a dict as value having:
+   a) list_of_assigned_tasks as key and unique title of tasks as value (list)
+   b) completed_story_points as key and value would be an integer representing the total time estimate of the assignees task
+   c) percentage_of_completion as key and value would be an float representing the percentage of delivered_story_points (out of committed, where committed time estiamte/story points are 100%)
+
+Once this .json file is generated then the code should read this file and then create the sprints_data.csv so later we can seprate the logic easily.

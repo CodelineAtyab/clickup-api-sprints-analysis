@@ -73,6 +73,9 @@ def fetch_clickup_data():
                     # Get task title
                     task_title = task.get("name", "Untitled Task")
                     
+                    # Get task status
+                    task_status = task.get("status", {}).get("status", "Unknown")
+                    
                     # Get assignees
                     assignees = task.get("assignees", [])
                     
@@ -83,7 +86,8 @@ def fetch_clickup_data():
                                 "assignee": assignee["username"],
                                 "time_estimate_hours": time_estimate_hours,
                                 "task_title": task_title,
-                                "task_id": task["id"]
+                                "task_id": task["id"],
+                                "task_status": task_status
                             })
                     else:
                         # Unassigned tasks
@@ -92,7 +96,8 @@ def fetch_clickup_data():
                             "assignee": "Unassigned",
                             "time_estimate_hours": time_estimate_hours,
                             "task_title": task_title,
-                            "task_id": task["id"]
+                            "task_id": task["id"],
+                            "task_status": task_status
                         })
     
     return sprint_raw_data
@@ -138,7 +143,9 @@ def process_sprint_data(sprint_raw_data):
         # Add task to assignee's list if not already there
         if task_title not in sprints[sprint_name]["delivered_story_points"][assignee]["list_of_assigned_tasks"]:
             sprints[sprint_name]["delivered_story_points"][assignee]["list_of_assigned_tasks"].append(task_title)
-            sprints[sprint_name]["delivered_story_points"][assignee]["completed_story_points"] += time_estimate
+            # Only add to completed_story_points if the task is in COMPLETE status
+            if item["task_status"].lower() == "complete":
+                sprints[sprint_name]["delivered_story_points"][assignee]["completed_story_points"] += time_estimate
     
     # Calculate percentage of completion for each assignee
     for sprint_name, sprint_data in sprints.items():

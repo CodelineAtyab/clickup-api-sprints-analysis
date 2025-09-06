@@ -1,3 +1,4 @@
+[Get All Sprint's Data]
 Before generating the .csv file, we have to generate a all_sprints_data.json that includes a list of sprints.
 Each item in the list is a dict with key as sprint name and value is a dict that includes:
 1) list_of_assignees as key and names of assignees as value (list)
@@ -9,3 +10,25 @@ Each item in the list is a dict with key as sprint name and value is a dict that
    c) percentage_of_completion as key and value would be an float representing the percentage of delivered_story_points (out of committed, where committed time estiamte/story points are 100%)
 
 Once this .json file is generated then the code should read this file and then create the sprints_data.csv so later we can seprate the logic easily.
+
+[Correct All Sprint's Data]
+all_sprints_data.json contains the names of all team members (collect all team member names) along with sprint information having committed vs delivered story points (time in no. of hours)
+need a script to fix the sprints data along with adding some info.
+Update the .json to have a top level key "sprints" with the given list of sprint objects and another top level key "team_info" object having value as a list of all team member names. (Collect all names from the given data)
+For each sprint:
+    1) need to check which team member has the maximum number of completed_story_points then use this value for the sprint's committed_story_points.
+    2) Also, list_of_assigned_tasks for the team member with the maximum number of completed_story_points should become list_of_unique_tasks_titles.
+    3) Once thats done, then all other team member's percentage can be recalculated based on the new committed_story_points.
+    4) After list_of_unique_tasks_titles, add a new key "no_assigned_tasks_for" and in value give a list of team member names that have no assignments (total-assignees)
+
+Have to repeat the same logic for all available sprints.
+Store the results in a new file caleed transformed_sprints_data.json
+
+[Visualize Sprint's Data]
+This script is a simple fastAPI application that simply returns transformed_sprints_data.json on root path /sprints
+Aslo need this .html that uses a popular JS library for visualizing the fetched data from /sprints endpoint
+The visualzation should be a single page application which shows each sprint card initially with highlevel info like title of sprint, commited story points, average delivered story points (Show as team velocity) etc..
+When a sprint card is expanded, then I can show each team member card initially with highlevel info like name of member, delivered_story_points (number and complete percentage)
+When a team member card is expanded then it should tasks card, each with title only.
+
+Anything missing from the fetched data can be accomodated based on how standard sprint reports looks like.

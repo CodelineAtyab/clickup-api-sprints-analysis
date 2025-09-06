@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sprints Performance Report</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 1200px;
+        }
+        .card {
+            margin-bottom: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .sprint-card {
+            border-left: 5px solid #0d6efd;
+        }
+        .card-header {
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .member-card {
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 6px;
+            background-color: #f1f1f1;
+            border-left: 4px solid #6c757d;
+        }
+        .task-card {
+            margin: 5px 0;
+            padding: 8px 12px;
+            border-radius: 4px;
+            background-color: #e9ecef;
+            font-size: 0.9rem;
+        }
+        .progress {
+            height: 10px;
+            margin: 8px 0;
+        }
+        .hidden {
+            display: none;
+        }
+        #velocity-chart-container {
+            height: 300px;
+            margin-bottom: 30px;
+        }
+        .summary-box {
+            text-align: center;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-bottom: 15px;
+        }
+        .summary-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        .summary-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+        .badge {
+            font-size: 0.8rem;
+            padding: 5px 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4 mb-5">
+        <h1 class="text-center mb-4">Sprints Performance Report</h1>
+        
+        <!-- Team Summary -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="summary-box">
+                    <div class="summary-value" id="total-sprints">-</div>
+                    <div class="summary-label">Total Sprints</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="summary-box">
+                    <div class="summary-value" id="team-members">-</div>
+                    <div class="summary-label">Team Members</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="summary-box">
+                    <div class="summary-value" id="avg-velocity">-</div>
+                    <div class="summary-label">Average Velocity</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Velocity Chart -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                Team Velocity Across Sprints
+            </div>
+            <div class="card-body">
+                <div id="velocity-chart-container">
+                    <canvas id="velocityChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sprints Container -->
+        <h3 class="mb-3">Sprints Details</h3>
+        <div id="sprints-container">
+            <!-- Sprints will be added here dynamically -->
+            <div class="text-center py-5">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Loading sprint data...</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Fetch sprints data from API
+        fetch('/sprints')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                displaySprintsData(data);
+                createVelocityChart(data.sprints);
+                updateTeamSummary(data);
+            })
+            .catch(error => {
+                console.error('Error fetching sprints data:', error);
+                document.getElementById('sprints-container').innerHTML = `
+                    <div class="alert alert-danger" role="alert">
+                        Error loading sprints data: ${error.message}
+                    </div>
+                `;
+            });
+        
+        function updateTeamSummary(data) {
+            document.getElementById('total-sprints').textContent = data.sprints.length;
+            document.getElementById('team-members').textContent = data.team_info.filter(member => member !== 'Unassigned').length;
+            
+            // Calculate average velocity across all sprints
+            let totalVelocity = 0;
+            let sprintCount = 0;
+            
+            data.sprints.forEach(sprintObj => {
+                const sprintData = Object.values(sprintObj)[0];
+                if (sprintData.committed_story_points > 0) {
+                    let totalDeliveredPoints = 0;
+                    let memberCount = 0;
+                    
+                    for (const member in sprintData.delivered_story_points) {
+                        if (member !== 'Unassigned') {
+                            totalDeliveredPoints += sprintData.delivered_story_points[member].completed_story_points;
+                            memberCount++;
+                        }
+                    }
+                    
+                    const avgDelivered = memberCount > 0 ? totalDeliveredPoints / memberCount : 0;
+                    totalVelocity += avgDelivered;
+                    sprintCount++;
+                }
+            });
+            
+            const avgVelocity = sprintCount > 0 ? (totalVelocity / sprintCount).toFixed(1) : 0;
+            document.getElementById('avg-velocity').textContent = avgVelocity;
+        }
+        
+        function displaySprintsData(data) {
+            const sprintsContainer = document.getElementById('sprints-container');
+            sprintsContainer.innerHTML = ''; // Clear loading spinner
+            
+            data.sprints.forEach((sprintObj, index) => {
+                const sprintName = Object.keys(sprintObj)[0];
+                const sprintData = sprintObj[sprintName];
+                
+                // Calculate average delivered story points (team velocity)
+                let totalDeliveredPoints = 0;
+                let memberCount = 0;
+                
+                for (const member in sprintData.delivered_story_points) {
+                    if (member !== 'Unassigned') {
+                        totalDeliveredPoints += sprintData.delivered_story_points[member].completed_story_points;
+                        memberCount++;
+                    }
+                }
+                
+                const avgDeliveredPoints = memberCount > 0 ? (totalDeliveredPoints / memberCount).toFixed(1) : 0;
+                const completionPercentage = sprintData.committed_story_points > 0 
+                    ? (totalDeliveredPoints / (sprintData.committed_story_points * memberCount) * 100).toFixed(1)
+                    : 0;
+                
+                // Create sprint card
+                const sprintCard = document.createElement('div');
+                sprintCard.className = 'card sprint-card';
+                sprintCard.innerHTML = `
+                    <div class="card-header d-flex justify-content-between align-items-center" 
+                         onclick="toggleSprintDetails(${index})">
+                        <h5 class="mb-0">${sprintName}</h5>
+                        <div class="sprint-summary">
+                            <span class="badge bg-primary me-2">Committed: ${sprintData.committed_story_points}</span>
+                            <span class="badge bg-success me-2">Velocity: ${avgDeliveredPoints}</span>
+                            <span class="badge bg-info">Tasks: ${sprintData.list_of_unique_tasks_titles.length}</span>
+                            <i class="fas fa-chevron-down ms-2" id="sprint-icon-${index}"></i>
+                        </div>
+                    </div>
+                    <div class="card-body hidden" id="sprint-details-${index}">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <p><strong>Sprint Tasks:</strong> ${sprintData.list_of_unique_tasks_titles.length}</p>
+                                <p><strong>Assignees:</strong> ${sprintData.list_of_assignees.length}</p>
+                                <p><strong>Unassigned Members:</strong> ${sprintData.no_assigned_tasks_for ? sprintData.no_assigned_tasks_for.length : 0}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Overall Completion:</strong></p>
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar ${
+                                        completionPercentage >= 80 ? 'bg-success' : 
+                                        completionPercentage >= 50 ? 'bg-warning' : 'bg-danger'
+                                    }" role="progressbar" 
+                                        style="width: ${Math.min(completionPercentage, 100)}%;" 
+                                        aria-valuenow="${completionPercentage}" 
+                                        aria-valuemin="0" 
+                                        aria-valuemax="100">
+                                        ${completionPercentage}%
+                                    </div>
+                                </div>
+                                <p class="mt-2"><small>Committed: ${sprintData.committed_story_points} pts | Avg. Delivered: ${avgDeliveredPoints} pts</small></p>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <h6 class="mb-3">Tasks:</h6>
+                            <div class="row">
+                                ${sprintData.list_of_unique_tasks_titles.map((task, i) => `
+                                    <div class="col-md-6 mb-2">
+                                        <div class="task-card">
+                                            <i class="fas fa-tasks me-2"></i>${task}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        
+                        <h6 class="mt-4 mb-3">Team Members Performance</h6>
+                        <div class="members-container" id="members-container-${index}">
+                            <!-- Team members will be added here -->
+                        </div>
+                    </div>
+                `;
+                
+                sprintsContainer.appendChild(sprintCard);
+                
+                // Create team member cards (but don't display them yet)
+                const membersContainer = document.getElementById(`members-container-${index}`);
+                
+                // Sort members by completed story points (descending)
+                const sortedMembers = Object.keys(sprintData.delivered_story_points)
+                    .filter(member => member !== 'Unassigned')
+                    .sort((a, b) => {
+                        return sprintData.delivered_story_points[b].completed_story_points - 
+                               sprintData.delivered_story_points[a].completed_story_points;
+                    });
+                
+                sortedMembers.forEach((member, memberIndex) => {
+                    const memberData = sprintData.delivered_story_points[member];
+                    const memberCard = document.createElement('div');
+                    memberCard.className = 'member-card';
+                    
+                    // Calculate completion percentage
+                    const memberCompletionPercentage = memberData.percentage_of_completion;
+                    
+                    memberCard.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center" 
+                             onclick="toggleMemberDetails(${index}, ${memberIndex})">
+                            <h6 class="mb-0">${member}</h6>
+                            <div>
+                                <span class="badge bg-info me-2">Points: ${memberData.completed_story_points}</span>
+                                <span class="badge ${
+                                    memberCompletionPercentage >= 90 ? 'bg-success' : 
+                                    memberCompletionPercentage >= 60 ? 'bg-warning' : 'bg-danger'
+                                }">
+                                    ${memberCompletionPercentage.toFixed(1)}%
+                                </span>
+                                <i class="fas fa-chevron-down ms-2" id="member-icon-${index}-${memberIndex}"></i>
+                            </div>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar ${
+                                memberCompletionPercentage >= 90 ? 'bg-success' : 
+                                memberCompletionPercentage >= 60 ? 'bg-warning' : 'bg-danger'
+                            }" 
+                                role="progressbar" 
+                                style="width: ${Math.min(memberCompletionPercentage, 100)}%;" 
+                                aria-valuenow="${memberCompletionPercentage}" 
+                                aria-valuemin="0" 
+                                aria-valuemax="100">
+                            </div>
+                        </div>
+                        <div class="tasks-container hidden mt-3" id="tasks-container-${index}-${memberIndex}">
+                            <h6 class="mb-2">Assigned Tasks (${memberData.list_of_assigned_tasks.length}):</h6>
+                            <div class="row">
+                                ${memberData.list_of_assigned_tasks.map(task => `
+                                    <div class="col-md-6 mb-2">
+                                        <div class="task-card">
+                                            <i class="fas fa-check-circle me-2 text-success"></i>${task}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                    
+                    membersContainer.appendChild(memberCard);
+                });
+
+                // If unassigned exists, add it last
+                if (sprintData.delivered_story_points['Unassigned']) {
+                    const unassignedData = sprintData.delivered_story_points['Unassigned'];
+                    const unassignedCard = document.createElement('div');
+                    unassignedCard.className = 'member-card';
+                    unassignedCard.style.borderLeft = '4px solid #dc3545';
+                    
+                    unassignedCard.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center" 
+                             onclick="toggleMemberDetails(${index}, 'unassigned')">
+                            <h6 class="mb-0 text-danger">Unassigned</h6>
+                            <div>
+                                <span class="badge bg-secondary me-2">Tasks: ${unassignedData.list_of_assigned_tasks.length}</span>
+                                <i class="fas fa-chevron-down ms-2" id="member-icon-${index}-unassigned"></i>
+                            </div>
+                        </div>
+                        <div class="tasks-container hidden mt-3" id="tasks-container-${index}-unassigned">
+                            <h6 class="mb-2">Unassigned Tasks:</h6>
+                            <div class="row">
+                                ${unassignedData.list_of_assigned_tasks.map(task => `
+                                    <div class="col-md-6 mb-2">
+                                        <div class="task-card">
+                                            <i class="fas fa-exclamation-triangle me-2 text-warning"></i>${task}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                    
+                    membersContainer.appendChild(unassignedCard);
+                }
+            });
+        }
+        
+        function createVelocityChart(sprints) {
+            const sprintLabels = [];
+            const committedPoints = [];
+            const avgDeliveredPoints = [];
+            
+            sprints.forEach(sprintObj => {
+                const sprintName = Object.keys(sprintObj)[0].split(" ")[0]; // Just use the sprint number for cleaner chart
+                const sprintData = Object.values(sprintObj)[0];
+                
+                sprintLabels.push(sprintName);
+                committedPoints.push(sprintData.committed_story_points);
+                
+                // Calculate average delivered points
+                let totalDeliveredPoints = 0;
+                let memberCount = 0;
+                
+                for (const member in sprintData.delivered_story_points) {
+                    if (member !== 'Unassigned') {
+                        totalDeliveredPoints += sprintData.delivered_story_points[member].completed_story_points;
+                        memberCount++;
+                    }
+                }
+                
+                const avgDelivered = memberCount > 0 ? totalDeliveredPoints / memberCount : 0;
+                avgDeliveredPoints.push(avgDelivered);
+            });
+            
+            const ctx = document.getElementById('velocityChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: sprintLabels,
+                    datasets: [
+                        {
+                            label: 'Committed Story Points',
+                            data: committedPoints,
+                            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 2,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Average Delivered Points (Team Velocity)',
+                            data: avgDeliveredPoints,
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 2,
+                            tension: 0.1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Story Points'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Sprints'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Toggle sprint details
+        function toggleSprintDetails(sprintIndex) {
+            const detailsElement = document.getElementById(`sprint-details-${sprintIndex}`);
+            const iconElement = document.getElementById(`sprint-icon-${sprintIndex}`);
+            
+            detailsElement.classList.toggle('hidden');
+            
+            if (detailsElement.classList.contains('hidden')) {
+                iconElement.classList.remove('fa-chevron-up');
+                iconElement.classList.add('fa-chevron-down');
+            } else {
+                iconElement.classList.remove('fa-chevron-down');
+                iconElement.classList.add('fa-chevron-up');
+            }
+        }
+        
+        // Toggle member details (tasks)
+        function toggleMemberDetails(sprintIndex, memberIndex) {
+            const tasksContainer = document.getElementById(`tasks-container-${sprintIndex}-${memberIndex}`);
+            const iconElement = document.getElementById(`member-icon-${sprintIndex}-${memberIndex}`);
+            
+            tasksContainer.classList.toggle('hidden');
+            
+            if (tasksContainer.classList.contains('hidden')) {
+                iconElement.classList.remove('fa-chevron-up');
+                iconElement.classList.add('fa-chevron-down');
+            } else {
+                iconElement.classList.remove('fa-chevron-down');
+                iconElement.classList.add('fa-chevron-up');
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+services:
+  api:
+    build: .
+    container_name: clickup-api-sprints-analysis
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./cont_sprints_data:/app/fetched_sprints_data
+    env_file:
+      - .env

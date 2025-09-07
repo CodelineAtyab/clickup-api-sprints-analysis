@@ -1,4 +1,6 @@
 .env
 .vscode/
 .venv/
+__pycache__
 output/
+fetched_sprints_data/

@@ -1,8 +1,12 @@
+import json
+import os
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-import json
-import os
+
+from src.main_get_sprints_data_app import get_updated_sprints_data
+
 
 app = FastAPI(title="Sprints Report API")
 
@@ -15,11 +19,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/reload")
+async def reload_sprints_data():
+    """Reload the sprints data from the source"""
+    try:
+        # Call the function to fetch and transform the sprints data
+        get_updated_sprints_data()
+        return {"message": "Sprints data reloaded successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/sprints")
 async def get_sprints_data():
     """Return the transformed sprints data as JSON"""
     try:
-        with open(os.path.join('output', 'transformed_sprints_data.json'), 'r') as file:
+        with open(os.path.join('fetched_sprints_data', 'transformed_sprints_data.json'), 'r') as file:
             data = json.load(file)
         return data
     except FileNotFoundError:
@@ -34,4 +48,4 @@ async def get_report():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8081)

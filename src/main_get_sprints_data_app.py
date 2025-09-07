@@ -4,6 +4,7 @@ import json
 import csv
 
 from dotenv import load_dotenv
+from src.correct_and_transform_sprints_data import get_transformed_sprints_data
 
 # Load environment variables from .env file
 load_dotenv()
@@ -199,23 +200,26 @@ def generate_csv_from_json(json_file, csv_file):
     
     print(f"Data exported to {csv_file}")
 
-def main():
+def get_updated_sprints_data():
     # Fetch data from ClickUp API
     sprint_raw_data = fetch_clickup_data()
     
     # Process data into required structure
     sprints_data = process_sprint_data(sprint_raw_data)
 
-    # Create output directory if not exist
-    os.makedirs("output", exist_ok=True)
+    # Create fetched_sprints_data directory if not exist
+    os.makedirs("fetched_sprints_data", exist_ok=True)
 
     # Save to JSON file
-    json_file = "output/all_sprints_data.json"
+    json_file = "fetched_sprints_data/all_sprints_data.json"
     save_to_json(sprints_data, json_file)
     
     # Generate CSV from JSON
-    csv_file = "output/sprints_data.csv"
+    csv_file = "fetched_sprints_data/sprints_data.csv"
     generate_csv_from_json(json_file, csv_file)
 
+    # Transform all_sprints_data.json data using the existing transformation function
+    get_transformed_sprints_data()
+
 if __name__ == "__main__":
-    main()
+    get_updated_sprints_data()

@@ -69,11 +69,11 @@ def transform_sprint_data(sprints_data, all_team_members):
     
     return transformed_data
 
-def main():
-    input_file = os.path.join('output', 'all_sprints_data.json')
-    output_file = os.path.join('output', 'transformed_sprints_data.json')
+def get_transformed_sprints_data():
+    input_file = os.path.join('fetched_sprints_data', 'all_sprints_data.json')
+    output_file = os.path.join('fetched_sprints_data', 'transformed_sprints_data.json')
     
-    # Ensure the output directory exists
+    # Ensure the fetched_sprints_data directory exists
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     
     # Load, transform, and save data
@@ -85,4 +85,4 @@ def main():
     print(f"Data transformation completed. Results saved to {output_file}")
 
 if __name__ == "__main__":
-    main()
+    get_transformed_sprints_data()

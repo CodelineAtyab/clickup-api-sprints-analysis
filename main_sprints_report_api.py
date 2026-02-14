@@ -92,6 +92,35 @@ async def get_sprints_data():
     except json.JSONDecodeError:
         raise HTTPException(status_code=500, detail="Error decoding JSON data")
 
+@app.get("/next-reload")
+async def get_next_reload_time():
+    """Return the time in minutes until the next scheduled reload"""
+    try:
+        if not os.path.exists('last_reload_epoch_time.txt'):
+            return {"minutes_until_reload": 0, "message": "No reload has occurred yet. Reload will happen shortly."}
+        
+        with open('last_reload_epoch_time.txt', 'r') as f:
+            last_reload_time = int(f.read().strip())
+        
+        current_time = int(time.time())
+        time_since_reload = current_time - last_reload_time
+        
+        # 12 hours in seconds = 43200
+        time_until_reload = 43200 - time_since_reload
+        
+        if time_until_reload <= 0:
+            return {"minutes_until_reload": 0, "message": "Reload is due now"}
+        
+        minutes_until_reload = time_until_reload // 60
+        
+        return {
+            "minutes_until_reload": minutes_until_reload,
+            "seconds_until_reload": time_until_reload,
+            "last_reload_epoch": last_reload_time
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/")
 async def get_report():
     """Serve the HTML report page"""

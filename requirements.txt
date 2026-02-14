@@ -1,3 +1,4 @@
 requests==2.32.5
 python-dotenv==1.1.1
 fastapi[all]==0.116.1
+apscheduler==3.11.2

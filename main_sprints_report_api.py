@@ -1,14 +1,66 @@
 import json
 import os
+import time
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from apscheduler.schedulers.background import BackgroundScheduler
 
 from src.main_get_sprints_data_app import get_updated_sprints_data
 
 
-app = FastAPI(title="Sprints Report API")
+def check_and_reload():
+    """Check if reload is needed based on last reload time"""
+    try:
+        if not os.path.exists('last_reload_epoch_time.txt'):
+            # File doesn't exist, trigger immediate reload
+            print("No last reload time found. Triggering reload...")
+            _perform_reload()
+            return
+        
+        with open('last_reload_epoch_time.txt', 'r') as f:
+            last_reload_time = int(f.read().strip())
+        
+        current_time = int(time.time())
+        time_difference = current_time - last_reload_time
+        
+        # 12 hours in seconds = 12 * 60 * 60 = 43200
+        if time_difference >= 43200:
+            print(f"Time difference ({time_difference}s) >= 12 hours. Triggering reload...")
+            _perform_reload()
+    except Exception as e:
+        print(f"Error in check_and_reload: {e}")
+
+def _perform_reload():
+    """Internal function to perform the actual reload and update timestamp"""
+    get_updated_sprints_data()
+    
+    # Store the epoch time of reload
+    epoch_time = int(time.time())
+    with open('last_reload_epoch_time.txt', 'w') as f:
+        f.write(str(epoch_time))
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize scheduler on app startup and cleanup on shutdown"""
+    scheduler = BackgroundScheduler()
+    # Run check_and_reload every minute
+    scheduler.add_job(check_and_reload, 'interval', minutes=1)
+    scheduler.start()
+    print("Scheduler started - checking every minute for reload")
+    
+    # Run initial check
+    check_and_reload()
+    
+    yield
+    
+    # Shutdown
+    scheduler.shutdown()
+    print("Scheduler stopped")
+
+app = FastAPI(title="Sprints Report API", lifespan=lifespan)
 
 # Enable CORS
 app.add_middleware(
@@ -23,8 +75,7 @@ app.add_middleware(
 async def reload_sprints_data():
     """Reload the sprints data from the source"""
     try:
-        # Call the function to fetch and transform the sprints data
-        get_updated_sprints_data()
+        _perform_reload()
         return {"message": "Sprints data reloaded successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
